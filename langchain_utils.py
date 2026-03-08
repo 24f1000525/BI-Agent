@@ -292,16 +292,30 @@ class LangChainChat:
             # Prepare the system prompt with data context
             data_context = self.get_data_context()
             
-            system_prompt = f"""You are a helpful data analysis assistant powered by advanced AI. 
-You have access to a dataset that has been uploaded by the user.
+            system_prompt = f"""You are a Data Intelligence Analyst AI Assistant.
+Your role is to help users understand and explore their data through natural conversation.
 
 {data_context}
 
-Help the user understand and analyze their data. Provide insights, answer questions, and suggest relevant analysis.
-Be clear, concise, and data-driven in your responses.
-Use only columns that actually exist in the dataset and preserve exact column names/case.
-If a requested field is missing, clearly say which column is unavailable and ask for a valid alternative.
-Do not output Python code, SQL, or plotting scripts unless the user explicitly asks for code."""
+**Available Visualization Types (triggered by keywords like show, visualize, chart, graph, compare, trend, distribution, breakdown):**
+- Bar Charts: Compare categories or aggregated values
+- Line Charts: Track trends over time
+- Scatter Plots: Explore relationships between numeric columns
+- Distributions: Analyze value ranges and frequencies
+- Comparisons: Show metrics side-by-side by category
+
+**Key Behavior Rules:**
+1. When user asks questions like "show me...", "visualize...", "compare..." - these naturally lead to dashboard generation
+2. Preserve exact column names/case - use columns exactly as they appear in the dataset
+3. If a column is missing, say which column is unavailable and suggest alternatives
+4. Focus on clear, actionable insights with concise explanations
+5. Do NOT output Python code, SQL, or plotting scripts
+
+**Response Guidelines:**
+- Provide direct insights and analysis first
+- Reference column names when mentioning data
+- Be specific about what the visualization will show
+- Keep responses clear and data-driven"""
             
             # Use direct message objects so braces in dataset context are treated as literal text.
             response = self._invoke_with_model_fallback([
@@ -388,3 +402,60 @@ Focus on interesting patterns, distributions, or characteristics."""
             suggestions.append(f"Break down {numeric_cols[0]} by {categorical_cols[0]} and {categorical_cols[1]}")
         
         return suggestions[:5]
+
+    def get_chart_intent(self, user_query: str) -> dict:
+        """Use LLM to extract chart visualization intent from user query.
+        
+        Returns a dict with keys:
+          should_plot, chart_type, x, y, groupby, aggregation, title
+        """
+        if self.csv_analyzer.df is None:
+            return {"should_plot": False}
+
+        df = self.csv_analyzer.df
+        columns = list(df.columns)
+        numeric_cols = list(df.select_dtypes(include=["number"]).columns)
+        categorical_cols = list(df.select_dtypes(include=["object", "category"]).columns)
+
+        # Collect a few sample values per column to help the LLM pick the right columns
+        sample_values = {}
+        for col in columns[:8]:
+            try:
+                sample_values[col] = list(df[col].dropna().unique()[:4])
+            except Exception:
+                sample_values[col] = []
+
+        prompt = (
+            "You are a data visualization expert. Analyze the user question and decide "
+            "the single best chart to generate from the dataset.\n\n"
+            f"All dataset columns: {columns}\n"
+            f"Numeric columns: {numeric_cols}\n"
+            f"Categorical columns: {categorical_cols}\n"
+            f"Sample values per column: {sample_values}\n\n"
+            f'User question: "{user_query}"\n\n'
+            "Respond with ONLY a valid JSON object — no markdown, no explanation.\n"
+            "Fields:\n"
+            '  "should_plot": true or false\n'
+            '  "chart_type": "bar" | "line" | "scatter" | "area"\n'
+            '  "x": exact column name for x-axis\n'
+            '  "y": exact numeric column name for y-axis\n'
+            '  "groupby": exact column name for color/grouping, or null\n'
+            '  "aggregation": "sum" | "mean" | "count" | "max" | "min"\n'
+            '  "title": short descriptive chart title\n\n'
+            "Rules:\n"
+            "- Use only column names that appear exactly in the dataset.\n"
+            "- y must be a numeric column.\n"
+            "- Use line chart for time/trend questions, bar for comparisons, scatter for correlations.\n"
+            "- Set should_plot=false only for pure greetings, definitions, or questions with no data intent."
+        )
+
+        try:
+            response = self._invoke_with_model_fallback([HumanMessage(content=prompt)])
+            text = response.content.strip()
+            # Strip any markdown code fences the model may have added
+            text = re.sub(r"```(?:json)?\s*|\s*```", "", text).strip()
+            import json as _json
+            intent = _json.loads(text)
+            return intent
+        except Exception:
+            return {"should_plot": False}

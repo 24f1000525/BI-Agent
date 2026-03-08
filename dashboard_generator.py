@@ -221,6 +221,9 @@ class DashboardGenerator:
             for col in self.categorical_columns + self.date_columns:
                 if breakdown_term in str(col).lower():
                     intent['breakdowns'].append(col)
+                    # Also add to dimensions so primary chart is created
+                    if col not in intent['dimensions']:
+                        intent['dimensions'].append(col)
 
         # Metric prioritization based on semantic intent (e.g., amount vs count)
         amount_intent = any(word in query_lower for word in ['amount', 'amt', 'value', 'rupee', 'inr'])

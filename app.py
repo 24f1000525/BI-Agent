@@ -3,111 +3,360 @@ import pandas as pd
 import os
 import tempfile
 import numpy as np
+from typing import Dict
 from langchain_utils import LangChainChat
 from dashboard_generator import DashboardGenerator
+from dashboard_orchestrator import DashboardOrchestrator, InteractiveDashboard
+from dynamic_chart_generator import DynamicChartGenerator
 from config import APP_TITLE, APP_DESCRIPTION, GOOGLE_API_KEY
 
 # Page Configuration
 st.set_page_config(
     page_title=APP_TITLE,
-    page_icon="🤖",
+    page_icon="⬡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS — dark theme
 st.markdown("""
-    <style>
-    .main {
-        padding-top: 0rem;
-        background: linear-gradient(160deg, #f6fbff 0%, #eef7f2 55%, #fff7ee 100%);
-    }
-    .stChatMessage,
-    [data-testid="stChatMessage"] {
-        border-radius: 12px;
-        padding: 20px;
-        border: 1px solid rgba(31, 93, 167, 0.18);
-        background: transparent !important;
-        box-shadow: none;
-    }
-    .stChatMessage * {
-        background: transparent !important;
-    }
-    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
-        background: transparent !important;
-    }
-    [data-testid="stChatMessage"][aria-label="user"] {
-        border-color: rgba(31, 93, 167, 0.26);
-    }
-    [data-testid="stChatMessage"][aria-label="assistant"] {
-        border-color: rgba(31, 93, 167, 0.16);
-    }
-    [data-testid="stChatInput"],
-    [data-testid="stChatInput"] > div,
-    [data-testid="stChatInput"] textarea,
-    [data-testid="stChatInput"] input {
-        background: transparent !important;
-    }
-    .stFileUploadDropzone {
-        border-radius: 10px;
-    }
-    .header-title {
-        color: #144e8c;
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-    .header-subtitle {
-        color: #3f5971;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-    .viz-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
-        border: 1px solid #deebf8;
-        border-radius: 16px;
-        padding: 0.8rem 1rem;
-        margin-bottom: 0.9rem;
-        box-shadow: 0 6px 16px rgba(31, 93, 167, 0.08);
-    }
-    .viz-chip {
-        display: inline-block;
-        margin: 0.25rem 0.35rem 0.2rem 0;
-        padding: 0.28rem 0.68rem;
-        border-radius: 999px;
-        background: #eaf3ff;
-        color: #0f4d90;
-        font-size: 0.82rem;
-        border: 1px solid #d1e4fc;
-    }
-    .viz-section-title {
-        margin-top: 0.2rem;
-        margin-bottom: 0.5rem;
-        color: #144e8c;
-        font-size: 1rem;
-        font-weight: 600;
-    }
-    .viz-chart-container {
-        background: #ffffff;
-        border: 1px solid #e8f0f9;
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-    .viz-chart-title {
-        color: #144e8c;
-        font-size: 0.95rem;
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-    }
-    .viz-chart-subtitle {
-        color: #5a7894;
-        font-size: 0.78rem;
-        margin-bottom: 0.7rem;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+/* ── Force dark mode ── */
+:root {
+    color-scheme: dark !important;
+}
+
+/* ── Base ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #e2e8f0;
+}
+.main {
+    padding-top: 0;
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+}
+
+/* ── Global text ── */
+p, span, li, td, th, label, div,
+[data-testid="stMarkdownContainer"],
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stText"],
+.stMarkdown, .stMarkdown p {
+    color: #cbd5e1;
+}
+h1, h2, h3, h4, h5, h6,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4,
+[data-testid="stMarkdownContainer"] h5 {
+    color: #f1f5f9 !important;
+}
+a { color: #818cf8; }
+code {
+    color: #e2e8f0;
+    background: #1e293b;
+    border-radius: 4px;
+    padding: 0.1rem 0.3rem;
+}
+
+/* ── Sidebar ── */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] > div,
+section[data-testid="stSidebar"] > div > div,
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"],
+[data-testid="stSidebarCollapsedControl"],
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"],
+section[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
+}
+section[data-testid="stSidebar"] {
+    border-right: 1px solid #334155;
+}
+section[data-testid="stSidebar"] * {
+    color: #cbd5e1;
+}
+section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] small {
+    color: #64748b !important;
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 { color: #f1f5f9 !important; }
+section[data-testid="stSidebar"] hr { border-color: #334155; }
+
+/* ── Chat bubbles ── */
+[data-testid="stChatMessage"] {
+    border-radius: 14px;
+    padding: 16px 20px;
+    border: 1px solid #334155;
+    background: #1e293b !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    margin-bottom: 0.5rem;
+}
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] div {
+    color: #e2e8f0 !important;
+    background: transparent !important;
+}
+[data-testid="stChatMessage"][aria-label="user"] {
+    border-left: 3px solid #818cf8;
+    background: #1a2236 !important;
+}
+[data-testid="stChatMessage"][aria-label="assistant"] {
+    border-left: 3px solid #34d399;
+}
+[data-testid="stChatInput"],
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInput"] input {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-radius: 12px !important;
+    border-color: #334155 !important;
+}
+
+/* ── Header ── */
+.app-header { margin-bottom: 1.5rem; }
+.app-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #f1f5f9 !important;
+    margin: 0 0 0.25rem 0;
+    letter-spacing: -0.02em;
+}
+.app-header p {
+    font-size: 0.95rem;
+    color: #94a3b8 !important;
+    margin: 0;
+}
+
+/* ── Cards / KPI ── */
+.kpi-grid { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }
+.kpi-card {
+    flex: 1;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.kpi-card .kpi-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8 !important;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+.kpi-card .kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f1f5f9 !important;
+}
+.kpi-card .kpi-sub {
+    font-size: 0.72rem;
+    color: #64748b !important;
+    margin-top: 0.15rem;
+}
+
+/* ── Chart wrapper ── */
+.chart-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1.15rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.chart-card .chart-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #f1f5f9 !important;
+    margin-bottom: 0.15rem;
+}
+.chart-card .chart-sub {
+    font-size: 0.75rem;
+    color: #94a3b8 !important;
+    margin-bottom: 0.75rem;
+}
+
+/* ── Chips / Tags ── */
+.chip {
+    display: inline-block;
+    margin: 0.2rem 0.3rem 0.2rem 0;
+    padding: 0.22rem 0.62rem;
+    border-radius: 999px;
+    background: #334155;
+    color: #cbd5e1 !important;
+    font-size: 0.78rem;
+    font-weight: 500;
+    border: 1px solid #475569;
+}
+
+/* ── Section title ── */
+.section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 1.25rem 0 0.6rem 0;
+}
+
+/* ── Landing page ── */
+.landing-hero { text-align: center; padding: 3rem 1rem 2rem; }
+.landing-hero h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: #f1f5f9 !important;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+}
+.landing-hero p {
+    font-size: 1.05rem;
+    color: #94a3b8 !important;
+    max-width: 540px;
+    margin: 0 auto 2rem;
+    line-height: 1.6;
+}
+.feature-grid { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.feature-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 1.5rem;
+    width: 220px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+.feature-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    border-color: #818cf8;
+}
+.feature-icon { margin-bottom: 0.6rem; display: flex; justify-content: center; }
+.feature-card h3 { font-size: 0.92rem; font-weight: 600; color: #f1f5f9 !important; margin: 0 0 0.3rem; }
+.feature-card p { font-size: 0.78rem; color: #94a3b8 !important; margin: 0; line-height: 1.45; }
+
+/* ── Sidebar file badge ── */
+.file-badge {
+    display: flex; align-items: center; gap: 0.5rem;
+    background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3);
+    border-radius: 8px; padding: 0.55rem 0.75rem;
+    margin-bottom: 0.75rem;
+}
+.file-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; }
+.file-badge span { font-size: 0.82rem; color: #6ee7b7 !important; font-weight: 500; }
+
+/* ── Streamlit overrides ── */
+.stFileUploadDropzone {
+    border-radius: 12px;
+    border: 2px dashed #475569 !important;
+    background: #1e293b !important;
+}
+.stFileUploadDropzone p, .stFileUploadDropzone span,
+.stFileUploadDropzone small, .stFileUploadDropzone label {
+    color: #94a3b8 !important;
+}
+/* Buttons */
+.stButton > button {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    color: #cbd5e1 !important;
+    border-color: #475569 !important;
+    background: #1e293b !important;
+}
+.stButton > button:hover {
+    border-color: #818cf8 !important;
+    color: #818cf8 !important;
+    background: #1a2236 !important;
+}
+.stButton > button[kind="primary"],
+button[kind="primary"] {
+    background: #6366f1 !important;
+    color: #ffffff !important;
+    border-color: #6366f1 !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: #818cf8 !important;
+}
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] { gap: 0; border-bottom: 2px solid #334155; }
+.stTabs [data-baseweb="tab"] {
+    border-radius: 0;
+    font-weight: 500;
+    padding: 0.65rem 1.25rem;
+    color: #94a3b8 !important;
+    background: transparent !important;
+}
+.stTabs [aria-selected="true"] {
+    color: #818cf8 !important;
+    border-bottom: 2px solid #818cf8;
+    background: transparent !important;
+}
+/* Metrics */
+[data-testid="stMetric"] {
+    background: #1e293b !important;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+[data-testid="stMetricLabel"] { font-size: 0.75rem; color: #94a3b8 !important; }
+[data-testid="stMetricValue"] { font-size: 1.4rem; font-weight: 700; color: #f1f5f9 !important; }
+[data-testid="stMetricDelta"] { color: #34d399 !important; }
+/* Expanders */
+[data-testid="stExpander"] {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 10px !important;
+}
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary p {
+    color: #e2e8f0 !important;
+    font-weight: 500;
+}
+/* Info / Warning / Error boxes */
+[data-testid="stAlert"] {
+    background: rgba(129, 140, 248, 0.08) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(129, 140, 248, 0.25) !important;
+    border-radius: 8px;
+}
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] span {
+    color: #e2e8f0 !important;
+}
+.stCaption, [data-testid="stCaption"] {
+    color: #64748b !important;
+}
+/* Dataframe */
+[data-testid="stDataFrame"] {
+    border: 1px solid #334155;
+    border-radius: 8px;
+}
+/* Spinner */
+.stSpinner > div { color: #818cf8 !important; }
+.stSpinner > div > span { color: #94a3b8 !important; }
+/* Select / Multiselect */
+[data-baseweb="select"] {
+    border-radius: 8px !important;
+}
+[data-baseweb="select"] > div {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+    border-color: #475569 !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Session State Management
 if 'chat_engine' not in st.session_state:
@@ -165,16 +414,10 @@ def load_csv_data(uploaded_file):
 def display_sample_data():
     """Display sample data from the loaded CSV."""
     if st.session_state.data_loaded and st.session_state.chat_engine:
-        with st.expander("📊 View Sample Data", expanded=False):
+        with st.expander("Preview data", expanded=False):
             sample_df = st.session_state.chat_engine.get_sample_data(rows=10)
             if sample_df is not None:
                 st.dataframe(sample_df, use_container_width=True)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("📈 Total Rows", len(sample_df))
-                with col2:
-                    st.metric("📋 Total Columns", len(sample_df.columns))
 
 
 def display_initial_insights():
@@ -187,38 +430,23 @@ def display_initial_insights():
         st.warning("No rows available to visualize.")
         return
 
-    with st.expander("📊 Initial Visual Insights", expanded=True):
-        st.markdown("""
-        <div style="background: linear-gradient(90deg, #1e5ead 0%, #2d7dd2 100%); 
-                    color: white; padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.2rem;">
-            <div style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.2rem;">Executive Dashboard</div>
-            <div style="font-size: 0.85rem; opacity: 0.95;">Key performance indicators and visual analytics</div>
-        </div>
-        """, unsafe_allow_html=True)
-
+    with st.expander("Dataset Overview", expanded=True):
         total_rows = len(df)
         total_columns = len(df.columns)
         missing_cells = int(df.isna().sum().sum())
         duplicate_rows = int(df.duplicated().sum())
         completeness = (1 - (missing_cells / max(total_rows * max(total_columns, 1), 1))) * 100
 
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        with kpi1:
-            st.markdown('<div class="viz-chart-container">', unsafe_allow_html=True)
-            st.metric("Total Rows", f"{total_rows:,}")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with kpi2:
-            st.markdown('<div class="viz-chart-container">', unsafe_allow_html=True)
-            st.metric("Columns", f"{total_columns}")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with kpi3:
-            st.markdown('<div class="viz-chart-container">', unsafe_allow_html=True)
-            st.metric("Missing Cells", f"{missing_cells:,}")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with kpi4:
-            st.markdown('<div class="viz-chart-container">', unsafe_allow_html=True)
-            st.metric("Data Quality", f"{completeness:.1f}%", f"{duplicate_rows:,} dupes")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="kpi-grid">'
+            f'  <div class="kpi-card"><div class="kpi-label">Rows</div><div class="kpi-value">{total_rows:,}</div></div>'
+            f'  <div class="kpi-card"><div class="kpi-label">Columns</div><div class="kpi-value">{total_columns}</div></div>'
+            f'  <div class="kpi-card"><div class="kpi-label">Missing</div><div class="kpi-value">{missing_cells:,}</div></div>'
+            f'  <div class="kpi-card"><div class="kpi-label">Quality</div><div class="kpi-value">{completeness:.0f}%</div>'
+            f'    <div class="kpi-sub">{duplicate_rows:,} duplicates</div></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
         non_null_score = (
             df.notna().sum() / max(total_rows, 1)
@@ -247,9 +475,9 @@ def display_initial_insights():
         if not selected_columns:
             selected_columns = list(df.columns[:5])
 
-        st.markdown('<div style="margin: 1.5rem 0 1rem 0;"><div class="viz-section-title">Key Columns Selected for Analysis</div>', unsafe_allow_html=True)
-        chips = "".join([f'<span class="viz-chip">{col}</span>' for col in selected_columns])
-        st.markdown(chips + '</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Key Columns</div>', unsafe_allow_html=True)
+        chips = "".join([f'<span class="chip">{col}</span>' for col in selected_columns])
+        st.markdown(chips, unsafe_allow_html=True)
 
         main_num = next((c for c in selected_columns if c in numeric_cols), None)
         second_num = next((c for c in selected_columns if c in numeric_cols and c != main_num), None)
@@ -287,16 +515,15 @@ def display_initial_insights():
                 )
 
                 st.markdown(f"""
-                <div class="viz-chart-container">
-                    <div class="viz-chart-title">Time Series Trend</div>
-                    <div class="viz-chart-subtitle">Average {main_num} over {date_like_col}</div>
+                <div class="chart-card">
+                    <div class="chart-title">Time Series Trend</div>
+                    <div class="chart-sub">Average {main_num} over {date_like_col}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 st.line_chart(                    trend_grouped.set_index(date_like_col)[main_num],
                     use_container_width=True,
-                    color="#1f8ef1"
+                    color="#818cf8"
                 )
-        st.markdown('<div style="margin-top: 1.5rem;"></div>', unsafe_allow_html=True)
         viz_left, viz_right = st.columns(2, gap="medium")
 
         with viz_left:
@@ -304,9 +531,9 @@ def display_initial_insights():
                 num_series = pd.to_numeric(df[main_num], errors="coerce").dropna()
                 if not num_series.empty:
                     st.markdown(f"""
-                    <div class="viz-chart-container">
-                        <div class="viz-chart-title">Value Distribution</div>
-                        <div class="viz-chart-subtitle">Frequency histogram for {main_num}</div>
+                    <div class="chart-card">
+                        <div class="chart-title">Value Distribution</div>
+                        <div class="chart-sub">Frequency histogram for {main_num}</div>
                     </div>
                     """, unsafe_allow_html=True)
                     bins = min(max(int(np.sqrt(len(num_series))), 8), 28)
@@ -315,7 +542,7 @@ def display_initial_insights():
                     st.bar_chart(
                         hist_df.set_index("range")["count"],
                         use_container_width=True,
-                        color="#28b67a"
+                        color="#34d399"
                     )
                 else:
                     st.info("Not enough numeric values for distribution chart.")
@@ -325,9 +552,9 @@ def display_initial_insights():
         with viz_right:
             if main_cat:
                 st.markdown(f"""
-                <div class="viz-chart-container">
-                    <div class="viz-chart-title">Category Composition</div>
-                    <div class="viz-chart-subtitle">Top 10 categories in {main_cat}</div>
+                <div class="chart-card">
+                    <div class="chart-title">Category Composition</div>
+                    <div class="chart-sub">Top 10 categories in {main_cat}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 top_counts = df[main_cat].fillna("Unknown").astype(str).value_counts().head(10)
@@ -335,19 +562,18 @@ def display_initial_insights():
                 st.bar_chart(
                     cat_df.set_index("Category")["Count"],
                     use_container_width=True,
-                    color="#ff8a3d"
+                    color="#fbbf24"
                 )
             else:
                 st.info("No categorical column available for category mix.")
 
-        st.markdown('<div style="margin-top: 1rem;"></div>', unsafe_allow_html=True)
         comp_left, comp_right = st.columns(2, gap="medium")
 
         with comp_left:
-            st.markdown(f"""
-            <div class="viz-chart-container">
-                <div class="viz-chart-title">Data Quality Overview</div>
-                <div class="viz-chart-subtitle">Missing values across selected columns</div>
+            st.markdown("""
+            <div class="chart-card">
+                <div class="chart-title">Data Quality</div>
+                <div class="chart-sub">Missing values per column</div>
             </div>
             """, unsafe_allow_html=True)
             miss = df[selected_columns].isna().sum().sort_values(ascending=False)
@@ -355,15 +581,15 @@ def display_initial_insights():
             st.bar_chart(
                 miss_df.set_index("Column")["Missing"],
                 use_container_width=True,
-                color="#f4516c"
+                color="#f87171"
             )
 
         with comp_right:
             if main_num and second_num:
                 st.markdown(f"""
-                <div class="viz-chart-container">
-                    <div class="viz-chart-title">🔗 Correlation Analysis</div>
-                    <div class="viz-chart-subtitle">{main_num} vs {second_num}</div>
+                <div class="chart-card">
+                    <div class="chart-title">Correlation</div>
+                    <div class="chart-sub">{main_num} vs {second_num}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 rel_df = df[[main_num, second_num]].copy()
@@ -376,113 +602,13 @@ def display_initial_insights():
                         x=main_num,
                         y=second_num,
                         use_container_width=True,
-                        color="#8b5cf6"
+                        color="#a78bfa"
+
                     )
                 else:
-                    st.info("🔗 Not enough valid rows for relationship chart.")
+                    st.info("Not enough valid rows for relationship chart.")
             else:
-                st.info("🔗 Need at least two numeric columns for correlation analysis.")
-
-
-def display_nl_dashboard_generator():
-    """Display natural language dashboard generator interface"""
-    if not (st.session_state.data_loaded and st.session_state.chat_engine):
-        return
-    
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%); 
-                color: white; padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
-        <div style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem;">🎨 Natural Language Dashboard Builder</div>
-        <div style="font-size: 0.9rem; opacity: 0.95;">Describe your visualization in plain English, and watch it come to life instantly</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # AI-generated suggestions based on actual data
-    suggestions = st.session_state.chat_engine.suggest_dashboard_queries()
-    if suggestions:
-        with st.expander("✨ AI-Recommended Queries for Your Data", expanded=True):
-            st.markdown("*Click any suggestion to use it:*")
-            cols = st.columns(len(suggestions))
-            for idx, (col, suggestion) in enumerate(zip(cols, suggestions)):
-                with col:
-                    if st.button(f"📊 Option {idx+1}", key=f"suggest_{idx}", use_container_width=True):
-                        st.session_state.nl_dashboard_query = suggestion
-                        st.rerun()
-            for suggestion in suggestions:
-                st.markdown(f"- *\"{suggestion}\"*")
-    
-    # Example prompts
-    with st.expander("💡 More Example Prompts", expanded=False):
-        examples = [
-            "Show me the monthly sales revenue for Q3 broken down by region",
-            "Compare values across different categories using a bar chart",
-            "Display the correlation between two numeric columns",
-            "Show the distribution grouped by category",
-            "Create a trend showing how metrics changed over time"
-        ]
-        for ex in examples:
-            st.markdown(f"- *\"{ex}\"*")
-    
-    # Natural language input
-    nl_query = st.text_area(
-        "Describe the dashboard you want to create:",
-        placeholder="e.g., Show me total sales by region with a breakdown by product category...",
-        height=100,
-        key="nl_dashboard_query"
-    )
-    
-    col1, col2, col3 = st.columns([2, 2, 6])
-    with col1:
-        generate_btn = st.button("🚀 Generate Dashboard", type="primary", use_container_width=True)
-    with col2:
-        if st.button("🔄 Clear", use_container_width=True):
-            st.session_state.nl_dashboard_query = ""
-            st.session_state.generated_dashboard = None
-            st.rerun()
-    
-    if generate_btn and nl_query:
-        with st.spinner("🎨 Creating your dashboard..."):
-            try:
-                df = st.session_state.chat_engine.csv_analyzer.df
-                generator = DashboardGenerator(df)
-                chart_specs = generator.generate_chart_spec(nl_query)
-                
-                if chart_specs:
-                    st.session_state.generated_dashboard = chart_specs
-                    st.success(f"✨ Generated {len(chart_specs)} visualization(s) from your query!")
-                else:
-                    st.warning("Could not generate visualizations. Try being more specific about columns or chart types.")
-            except Exception as e:
-                st.error(f"Error generating dashboard: {str(e)}")
-    
-    # Render generated dashboard
-    if 'generated_dashboard' in st.session_state and st.session_state.generated_dashboard:
-        st.markdown("---")
-        st.markdown("### 📊 Your Generated Dashboard")
-        
-        specs = st.session_state.generated_dashboard
-        
-        # Layout based on number of charts
-        if len(specs) == 1:
-            _render_chart(specs[0])
-        elif len(specs) == 2:
-            col1, col2 = st.columns(2, gap="large")
-            with col1:
-                _render_chart(specs[0])
-            with col2:
-                _render_chart(specs[1])
-        else:
-            # First chart full width
-            _render_chart(specs[0])
-            # Remaining charts in columns
-            if len(specs) > 1:
-                col1, col2 = st.columns(2, gap="large")
-                with col1:
-                    if len(specs) > 1:
-                        _render_chart(specs[1])
-                with col2:
-                    if len(specs) > 2:
-                        _render_chart(specs[2])
+                st.info("Need at least two numeric columns for correlation analysis.")
 
 
 def _render_chart(spec):
@@ -490,11 +616,8 @@ def _render_chart(spec):
     from dashboard_generator import ChartSpec
     
     st.markdown(f"""
-    <div style="background: white; border: 1px solid #e8f0f9; border-radius: 12px; 
-                padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-        <div style="color: #144e8c; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">
-            {spec.title}
-        </div>
+    <div class="chart-card">
+        <div class="chart-title">{spec.title}</div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -531,61 +654,227 @@ def _render_chart(spec):
         elif spec.chart_type == 'pie':
             # Streamlit doesn't have native pie chart, use bar as alternative
             st.bar_chart(spec.data.set_index(spec.x_column)[spec.y_column], use_container_width=True)
-            st.caption(f"💡 Showing as bar chart - {spec.aggregation} of {spec.y_column} by {spec.x_column}")
+            st.caption(f"Showing as bar chart — {spec.aggregation} of {spec.y_column} by {spec.x_column}")
         
         # Show data table option
-        with st.expander(f"📋 View Data ({len(spec.data)} rows)"):
+        with st.expander(f"View Data ({len(spec.data)} rows)"):
             st.dataframe(spec.data, use_container_width=True)
             
     except Exception as e:
         st.error(f"Error rendering chart: {str(e)}")
 
 
+def _render_dynamic_chart(chart_spec: Dict):
+    """Render a chart from DynamicChartGenerator"""
+    st.markdown(f"""
+    <div class="chart-card">
+        <div class="chart-title">{chart_spec['title']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    data = chart_spec.get('data')
+    if data is None or data.empty:
+        st.info("No data available for this visualization")
+        return
+    
+    try:
+        chart_type = chart_spec.get('type', 'bar')
+        x_col = chart_spec.get('x')
+        y_col = chart_spec.get('y')
+        group_col = chart_spec.get('groupby')
+        
+        if not x_col or not y_col:
+            st.warning("Missing chart configuration")
+            return
+        
+        if x_col not in data.columns or y_col not in data.columns:
+            st.warning(f"Chart columns not found in data")
+            return
+        
+        if chart_type == 'line':
+            if group_col and group_col in data.columns:
+                pivot = data.pivot_table(index=x_col, columns=group_col, values=y_col, aggfunc='sum')
+                st.line_chart(pivot, use_container_width=True)
+            else:
+                st.line_chart(data.set_index(x_col)[y_col], use_container_width=True)
+        elif chart_type == 'scatter':
+            st.scatter_chart(
+                data, x=x_col, y=y_col,
+                color=group_col if group_col and group_col in data.columns else None,
+                use_container_width=True
+            )
+        elif chart_type == 'area':
+            if group_col and group_col in data.columns:
+                pivot = data.pivot_table(index=x_col, columns=group_col, values=y_col, aggfunc='sum')
+                st.area_chart(pivot, use_container_width=True)
+            else:
+                st.area_chart(data.set_index(x_col)[y_col], use_container_width=True)
+        else:  # bar (default)
+            if group_col and group_col in data.columns:
+                pivot = data.pivot_table(index=x_col, columns=group_col, values=y_col, aggfunc='sum')
+                st.bar_chart(pivot, use_container_width=True)
+            else:
+                st.bar_chart(data.set_index(x_col)[y_col], use_container_width=True)
+        
+        # Show data table option
+        with st.expander(f"View Data ({len(data)} rows)"):
+            st.dataframe(data, use_container_width=True)
+            
+    except Exception as e:
+        st.error(f"Error rendering chart: {str(e)}")
+
+
+def _render_interactive_dashboard(dashboard: InteractiveDashboard):
+    """Render a cohesive, interactive dashboard with multiple charts and filters"""
+    
+    # Dashboard header
+    st.markdown(f"""
+    <div class="chart-card" style="border-left: 4px solid #818cf8;">
+        <div class="chart-title" style="font-size: 1.15rem;">{dashboard.title}</div>
+        <div class="chart-sub">{dashboard.description}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Interactive Filters Section
+    if dashboard.filters:
+        st.markdown("### Interactive Filters")
+        filter_cols = st.columns(len(dashboard.filters))
+        active_filters = {}
+        
+        for col, filter_spec in zip(filter_cols, dashboard.filters):
+            with col:
+                if filter_spec.type == 'multiselect':
+                    selected = st.multiselect(
+                        filter_spec.label,
+                        options=filter_spec.values,
+                        default=filter_spec.values[:min(3, len(filter_spec.values))],
+                        key=f"filter_{filter_spec.column}"
+                    )
+                    active_filters[filter_spec.column] = selected
+                elif filter_spec.type == 'dropdown':
+                    selected = st.selectbox(
+                        filter_spec.label,
+                        options=filter_spec.values,
+                        key=f"filter_{filter_spec.column}"
+                    )
+                    active_filters[filter_spec.column] = [selected]
+        
+        st.markdown("---")
+    
+    # KPI Cards Section
+    if dashboard.cards:
+        st.markdown("### Key Metrics")
+        card_cols = st.columns(min(4, len(dashboard.cards)))
+        
+        for col, card in zip(card_cols, dashboard.cards):
+            with col:
+                st.metric(
+                    label=card.metric_name,
+                    value=card.value,
+                    delta=card.trend,
+                    help=card.description
+                )
+        
+        st.markdown("---")
+    
+    # Charts Section with Layout
+    if dashboard.charts:
+        st.markdown("### Visualizations")
+        
+        layout = dashboard.layout.get('structure', 'grid')
+        
+        if layout == 'single':
+            _render_chart(dashboard.charts[0])
+        
+        elif layout == 'two_cols':
+            col1, col2 = st.columns(2, gap='large')
+            with col1:
+                _render_chart(dashboard.charts[0])
+            with col2:
+                if len(dashboard.charts) > 1:
+                    _render_chart(dashboard.charts[1])
+        
+        elif layout == 'mixed':
+            # First row: full width
+            _render_chart(dashboard.charts[0])
+            # Second row: two columns
+            col1, col2 = st.columns(2, gap='large')
+            with col1:
+                if len(dashboard.charts) > 1:
+                    _render_chart(dashboard.charts[1])
+            with col2:
+                if len(dashboard.charts) > 2:
+                    _render_chart(dashboard.charts[2])
+        
+        else:  # grid
+            for i in range(0, len(dashboard.charts), 2):
+                col1, col2 = st.columns(2, gap='large')
+                with col1:
+                    _render_chart(dashboard.charts[i])
+                with col2:
+                    if i + 1 < len(dashboard.charts):
+                        _render_chart(dashboard.charts[i + 1])
+    
+    # Insights Section
+    if dashboard.suggested_insights:
+        st.markdown("### Key Insights")
+        for insight in dashboard.suggested_insights:
+            st.info(f"{insight}")
+
+    st.markdown("---")
+    st.caption("Tip — Refine your question in the chat to explore different aspects of your data")
+
 def main():
     # Header
-    st.markdown('<h1 class="header-title">🤖 GenAI Data Intelligence Dashboard</h1>', 
-                unsafe_allow_html=True)
-    st.markdown(f'<p class="header-subtitle">{APP_DESCRIPTION}</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="app-header">'
+        '<h1>DataLens AI</h1>'
+        f'<p>{APP_DESCRIPTION}</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     
     # Sidebar
     with st.sidebar:
-        st.header("⚙️ Configuration")
-        
-        # File Upload Section
-        st.subheader("📁 Upload Data")
+        st.markdown("### Upload Data")
         uploaded_file = st.file_uploader(
-            "Choose a CSV file to analyze",
+            "Drop a CSV file here",
             type=['csv'],
-            help="Upload your CSV file to start analyzing with AI"
+            label_visibility="collapsed",
         )
         
         if uploaded_file is not None:
-            if st.button("🚀 Load Data", key="load_data_btn"):
-                with st.spinner("Loading data..."):
+            if st.button("Load Dataset", key="load_data_btn", use_container_width=True, type="primary"):
+                with st.spinner("Processing..."):
                     if st.session_state.chat_engine is None:
                         if not initialize_chat_engine():
                             st.stop()
                     
                     if load_csv_data(uploaded_file):
-                        st.success(f"Successfully loaded: {uploaded_file.name}")
                         st.rerun()
         
         if st.session_state.data_loaded:
-            st.info(f"Current File: {st.session_state.uploaded_filename}")
+            st.markdown(
+                f'<div class="file-badge"><span class="dot"></span>'
+                f'<span>{st.session_state.uploaded_filename}</span></div>',
+                unsafe_allow_html=True,
+            )
             
-            if st.button("🔄 Clear Data & Chat", key="clear_btn"):
+            if st.button("Clear Data & Chat", key="clear_btn", use_container_width=True):
                 st.session_state.chat_engine.clear_memory()
                 st.session_state.chat_history = []
                 st.session_state.data_loaded = False
                 st.session_state.chat_engine = None
                 st.session_state.uploaded_filename = None
-                st.success("Cleared all data and chat history")
                 st.rerun()
+        
+        st.markdown("---")
+        st.caption("Powered by Google Gemini & LangChain")
     
     # Main Content
     if st.session_state.data_loaded and st.session_state.chat_engine:
         # Create tabs for different views
-        tab1, tab2, tab3 = st.tabs(["📊 Quick Insights", "🎨 Dashboard Builder", "💬 AI Chat"])
+        tab1, tab2 = st.tabs(["Overview", "Chat"])
         
         with tab1:
             # Display sample data
@@ -595,12 +884,7 @@ def main():
             display_initial_insights()
         
         with tab2:
-            # Natural Language Dashboard Generator
-            display_nl_dashboard_generator()
-        
-        with tab3:
-            # Chat Interface
-            st.subheader("💬 Conversational Analysis")
+            st.markdown('<div class="section-title">Chat</div>', unsafe_allow_html=True)
             
             # Chat messages display
             chat_container = st.container()
@@ -608,7 +892,7 @@ def main():
             with chat_container:
                 for message in st.session_state.chat_history:
                     if message["role"] == "user":
-                        with st.chat_message("user", avatar="👤"):
+                        with st.chat_message("user", avatar="🧑‍💻"):
                             st.markdown(message["content"])
                     else:
                         with st.chat_message("assistant", avatar="🤖"):
@@ -617,47 +901,146 @@ def main():
                         # Display generated charts from dashboard generator
                         if message.get("generated_charts"):
                             st.markdown("---")
-                            st.markdown("### 📊 Generated Visualizations")
-                            for chart_info in message["generated_charts"]:
-                                chart_data = chart_info.get("data", [])
-                                if not chart_data:
-                                    st.caption(f"✓ {chart_info.get('type', 'chart').title()} Chart: {chart_info.get('title', 'Untitled')}")
-                                    continue
+                            dashboard_data = message["generated_charts"]
+                            
+                            # Handle new InteractiveDashboard format (dict)
+                            if isinstance(dashboard_data, dict) and 'charts' in dashboard_data:
+                                # New cohesive dashboard format
+                                st.markdown(f"### {dashboard_data.get('title', 'Dashboard')}")
+                                st.markdown(dashboard_data.get('description', ''))
+                                
+                                # Render KPI cards
+                                if dashboard_data.get('cards'):
+                                    card_cols = st.columns(min(3, len(dashboard_data['cards'])))
+                                    for col, card in zip(card_cols, dashboard_data['cards']):
+                                        with col:
+                                            st.metric(
+                                                label=card.get('metric_name', 'Metric'),
+                                                value=card.get('value', '0'),
+                                                help=card.get('description', '')
+                                            )
+                                    st.markdown("---")
+                                
+                                # Render charts
+                                if dashboard_data.get('charts'):
+                                    st.markdown("### Visualizations")
+                                    for chart_spec in dashboard_data['charts']:
+                                        raw_chart_data = chart_spec.get('data')
+                                        if raw_chart_data is None:
+                                            continue
 
-                                chart_df = pd.DataFrame(chart_data)
-                                chart_type = chart_info.get("type", "bar")
-                                x_col = chart_info.get("x")
-                                y_col = chart_info.get("y")
-                                group_col = chart_info.get("groupby")
-
-                                if not x_col or not y_col or x_col not in chart_df.columns or y_col not in chart_df.columns:
-                                    st.caption(f"✓ {chart_type.title()} Chart: {chart_info.get('title', 'Untitled')}")
-                                    continue
-
-                                st.markdown(f"#### {chart_info.get('title', 'Generated Chart')}")
-                                try:
-                                    if chart_type == "line":
-                                        if group_col and group_col in chart_df.columns:
-                                            pivot_data = chart_df.pivot(index=x_col, columns=group_col, values=y_col)
-                                            st.line_chart(pivot_data, use_container_width=True)
+                                        if isinstance(raw_chart_data, pd.DataFrame):
+                                            if raw_chart_data.empty:
+                                                continue
+                                            chart_df = raw_chart_data.copy()
                                         else:
-                                            st.line_chart(chart_df.set_index(x_col)[y_col], use_container_width=True)
-                                    elif chart_type == "scatter":
-                                        st.scatter_chart(
-                                            chart_df,
-                                            x=x_col,
-                                            y=y_col,
-                                            color=group_col if group_col in chart_df.columns else None,
-                                            use_container_width=True,
-                                        )
-                                    else:
-                                        if group_col and group_col in chart_df.columns:
-                                            pivot_data = chart_df.pivot(index=x_col, columns=group_col, values=y_col)
-                                            st.bar_chart(pivot_data, use_container_width=True)
+                                            if not raw_chart_data:
+                                                continue
+                                            chart_df = pd.DataFrame(raw_chart_data)
+
+                                        if chart_df.empty:
+                                            continue
+
+                                        x_col = chart_spec.get('x')
+                                        y_col = chart_spec.get('y')
+                                        group_col = chart_spec.get('groupby')
+                                        chart_type = chart_spec.get('chart_type') or chart_spec.get('type', 'bar')
+                                        
+                                        if not x_col or not y_col or x_col not in chart_df.columns or y_col not in chart_df.columns:
+                                            continue
+                                        
+                                        st.markdown(f"##### {chart_spec.get('title', 'Chart')}")
+                                        try:
+                                            if chart_type == 'line':
+                                                if group_col and group_col in chart_df.columns:
+                                                    pivot = chart_df.pivot(index=x_col, columns=group_col, values=y_col)
+                                                    st.line_chart(pivot, use_container_width=True)
+                                                else:
+                                                    st.line_chart(chart_df.set_index(x_col)[y_col], use_container_width=True)
+                                            elif chart_type == 'scatter':
+                                                st.scatter_chart(
+                                                    chart_df,
+                                                    x=x_col,
+                                                    y=y_col,
+                                                    color=group_col if group_col and group_col in chart_df.columns else None,
+                                                    use_container_width=True
+                                                )
+                                            else:  # bar, area, etc.
+                                                if group_col and group_col in chart_df.columns:
+                                                    pivot = chart_df.pivot(index=x_col, columns=group_col, values=y_col)
+                                                    st.bar_chart(pivot, use_container_width=True)
+                                                else:
+                                                    st.bar_chart(chart_df.set_index(x_col)[y_col], use_container_width=True)
+                                        except Exception:
+                                            st.caption(f"Could not render {chart_type} chart")
+
+                                # Render dynamic tables (for prompt-based chart+table mode)
+                                if dashboard_data.get('tables'):
+                                    st.markdown("### Tables")
+                                    for table_spec in dashboard_data['tables']:
+                                        table_title = table_spec.get('title', 'Table')
+                                        table_data = table_spec.get('data')
+                                        st.markdown(f"##### {table_title}")
+                                        if isinstance(table_data, pd.DataFrame):
+                                            st.dataframe(table_data, use_container_width=True)
+                                        elif table_data is not None:
+                                            st.dataframe(pd.DataFrame(table_data), use_container_width=True)
+
+                                if dashboard_data.get('summary'):
+                                    st.info(f"{dashboard_data['summary']}")
+                                
+                                # Render insights
+                                if dashboard_data.get('insights'):
+                                    st.markdown("### Key Insights")
+                                    for insight in dashboard_data['insights']:
+                                        st.info(f"{insight}")
+                            
+                            # Handle old chart list format (backward compatibility)
+                            elif isinstance(dashboard_data, list):
+                                st.markdown("### Generated Visualizations")
+                                for chart_info in dashboard_data:
+                                    if not isinstance(chart_info, dict):
+                                        continue
+                                    
+                                    chart_data = chart_info.get("data", [])
+                                    if not chart_data:
+                                        st.caption(f"{chart_info.get('type', 'chart').title()} Chart: {chart_info.get('title', 'Untitled')}")
+                                        continue
+
+                                    chart_df = pd.DataFrame(chart_data)
+                                    chart_type = chart_info.get("type", "bar")
+                                    x_col = chart_info.get("x")
+                                    y_col = chart_info.get("y")
+                                    group_col = chart_info.get("groupby")
+
+                                    if not x_col or not y_col or x_col not in chart_df.columns or y_col not in chart_df.columns:
+                                        st.caption(f"{chart_type.title()} Chart: {chart_info.get('title', 'Untitled')}")
+                                        continue
+
+                                    st.markdown(f"#### {chart_info.get('title', 'Generated Chart')}")
+                                    try:
+                                        if chart_type == "line":
+                                            if group_col and group_col in chart_df.columns:
+                                                pivot_data = chart_df.pivot(index=x_col, columns=group_col, values=y_col)
+                                                st.line_chart(pivot_data, use_container_width=True)
+                                            else:
+                                                st.line_chart(chart_df.set_index(x_col)[y_col], use_container_width=True)
+                                        elif chart_type == "scatter":
+                                            st.scatter_chart(
+                                                chart_df,
+                                                x=x_col,
+                                                y=y_col,
+                                                color=group_col if group_col in chart_df.columns else None,
+                                                use_container_width=True,
+                                            )
                                         else:
-                                            st.bar_chart(chart_df.set_index(x_col)[y_col], use_container_width=True)
-                                except Exception:
-                                    st.caption(f"✓ {chart_type.title()} Chart: {chart_info.get('title', 'Untitled')}")
+                                            if group_col and group_col in chart_df.columns:
+                                                pivot_data = chart_df.pivot(index=x_col, columns=group_col, values=y_col)
+                                                st.bar_chart(pivot_data, use_container_width=True)
+                                            else:
+                                                st.bar_chart(chart_df.set_index(x_col)[y_col], use_container_width=True)
+                                    except Exception:
+                                        st.caption(f"{chart_type.title()} Chart: {chart_info.get('title', 'Untitled')}")
                         
                         # Legacy chart support (backward compatibility)
                         if message.get("chart"):
@@ -673,19 +1056,18 @@ def main():
                                         use_container_width=True
                                     )
         
-        # Chat input
         col1, col2 = st.columns([1, 0.1])
         
         with col1:
             user_input = st.chat_input(
-                "Ask me anything about your data...",
+                "Ask anything about your data...",
                 key="chat_input"
             )
         
         # Process user input
         if user_input:
             # Display user message
-            with st.chat_message("user", avatar="👤"):
+            with st.chat_message("user", avatar="🧑‍💻"):
                 st.markdown(user_input)
             
             # Add to history
@@ -694,13 +1076,21 @@ def main():
                 "content": user_input
             })
             
-            # Detect if user wants a visualization
-            viz_keywords = [
-                'show', 'display', 'visualize', 'plot', 'chart', 'graph',
-                'trend', 'compare', 'comparison', 'correlation', 'relationship',
-                'distribution', 'breakdown', 'analyze', 'analysis'
-            ]
-            wants_visualization = any(keyword in user_input.lower() for keyword in viz_keywords)
+            # Smart visualization detection
+            def should_generate_dashboard(query):
+                """Return True for any data-related question (skip pure greetings)."""
+                q = query.lower().strip()
+                non_data = [
+                    'hello', 'hi', 'hey', 'thanks', 'thank you',
+                    'who are you', 'what are you', 'how are you',
+                    'goodbye', 'bye', 'ok', 'okay', 'yes', 'no'
+                ]
+                return not any(
+                    q == p or q.startswith(p + ' ') or q.startswith(p + ',')
+                    for p in non_data
+                )
+            
+            wants_visualization = should_generate_dashboard(user_input)
             
             # Get AI response
             with st.chat_message("assistant", avatar="🤖"):
@@ -720,27 +1110,32 @@ def main():
                         try:
                             df = st.session_state.chat_engine.csv_analyzer.df
                             if df is not None and not df.empty:
-                                generator = DashboardGenerator(df)
-                                chart_specs = generator.generate_chart_spec(user_input)
-                                
-                                if chart_specs:
+                                generator = DynamicChartGenerator(df)
+                                result = None
+
+                                # --- LLM-driven intent extraction ---
+                                with st.spinner("Generating chart..."):
+                                    intent = st.session_state.chat_engine.get_chart_intent(user_input)
+
+                                if intent.get("should_plot", False):
+                                    result = generator.generate_from_intent(intent)
+
+                                # --- Fallback: heuristic chart generator ---
+                                if result is None or "error" in result:
+                                    result = generator.parse_and_generate(user_input)
+
+                                if result and "error" not in result and (result.get("charts") or result.get("tables")):
                                     st.markdown("---")
-                                    st.markdown("### 📊 Generated Visualizations")
-                                    for spec in chart_specs:
-                                        _render_chart(spec)
-                                        generated_charts.append({
-                                            'type': spec.chart_type,
-                                            'title': spec.title,
-                                            'x': spec.x_column,
-                                            'y': spec.y_column,
-                                            'groupby': spec.groupby_column,
-                                            'aggregation': spec.aggregation,
-                                            'data': spec.data.to_dict(orient='records')
-                                        })
-                                else:
-                                    st.info("💡 Tip: Try being more specific about columns or chart types. Or visit the '🎨 Dashboard Builder' tab for AI-suggested queries.")
+                                    for chart_spec in result.get("charts", []):
+                                        _render_dynamic_chart(chart_spec)
+                                    for table_spec in result.get("tables", []):
+                                        st.markdown(f"### {table_spec['title']}")
+                                        st.dataframe(table_spec["data"], use_container_width=True)
+                                    if result.get("summary"):
+                                        st.info(f"{result['summary']}")
+                                    generated_charts = result
                         except Exception as e:
-                            st.info(f"💡 Could not generate visualization: {str(e)[:100]}... Try the '🎨 Dashboard Builder' tab for better results.")
+                            st.info(f"Could not generate visualization: {str(e)[:120]}")
 
                     # Legacy chart support (backward compatibility)
                     if response_chart:
@@ -766,48 +1161,40 @@ def main():
             st.rerun()
     
     else:
-        # Landing page when no data is loaded
-        st.info(
-            """
-            **Welcome to GenAI Data Intelligence!**
-            
-            This application allows you to:
-            - Upload CSV files
-            - Ask AI-powered questions about your data
-            - Get instant insights and analysis
-            - Discover patterns and trends
-            
-            **Getting Started:**
-            1. Upload a CSV file using the sidebar
-            2. Click 'Load Data' to process it
-            3. Start asking questions about your data!
-            
-            **Example Questions:**
-            - "What are the main trends in this data?"
-            - "Summarize the key statistics"
-            - "Which columns have missing values?"
-            - "What insights can you provide about specific columns?"
-            """
+        # Landing page
+        st.markdown(
+            '<div class="landing-hero">'
+            '<h1>Ask your data anything</h1>'
+            '<p>Upload a CSV, then chat with AI to uncover insights, '
+            'generate charts, and explore trends — no code needed.</p>'
+            '</div>',
+            unsafe_allow_html=True,
         )
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""
-            ### Features
-            - Instant Data Analysis
-            - Pattern Discovery
-            - Statistical Insights
-            - Natural Language Queries
-            """)
-        
-        with col2:
-            st.markdown("""
-            ### Technology Stack
-            - LangChain
-            - Google Gemini
-            - Streamlit
-            - Pandas
-            """)
+        st.markdown(
+            '<div class="feature-grid">'
+            '  <div class="feature-card">'
+            '    <div class="feature-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>'
+            '    <h3>Upload</h3>'
+            '    <p>Drop any CSV file and start instantly</p>'
+            '  </div>'
+            '  <div class="feature-card">'
+            '    <div class="feature-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>'
+            '    <h3>Ask</h3>'
+            '    <p>Chat in plain English to query your data</p>'
+            '  </div>'
+            '  <div class="feature-card">'
+            '    <div class="feature-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>'
+            '    <h3>Visualize</h3>'
+            '    <p>Auto-generated charts for every question</p>'
+            '  </div>'
+            '  <div class="feature-card">'
+            '    <div class="feature-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></div>'
+            '    <h3>Discover</h3>'
+            '    <p>AI finds patterns and trends you\'d miss</p>'
+            '  </div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
 
 if __name__ == "__main__":
