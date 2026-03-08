@@ -3,7 +3,7 @@ import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from config import GOOGLE_API_KEY, MODEL_NAME, TEMPERATURE
 
 
@@ -94,13 +94,62 @@ class LangChainChat:
     
     def __init__(self, api_key=None):
         self.api_key = api_key or GOOGLE_API_KEY
-        self.llm = ChatGoogleGenerativeAI(
-            google_api_key=self.api_key,
-            model=MODEL_NAME,
-            temperature=TEMPERATURE
-        )
+        self.model_candidates = self._build_model_candidates()
+        self.active_model = self.model_candidates[0]
+        self.llm = self._create_llm(self.active_model)
         self.chat_history = ChatMessageHistory()
         self.csv_analyzer = CSVAnalyzer()
+
+    def _build_model_candidates(self):
+        """Build ordered unique model candidates for runtime fallback."""
+        candidates = [
+            MODEL_NAME,
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro",
+            "gemini-1.5-pro-latest",
+        ]
+        # Preserve order while removing duplicates/empty values.
+        seen = set()
+        unique_candidates = []
+        for model in candidates:
+            if model and model not in seen:
+                seen.add(model)
+                unique_candidates.append(model)
+        return unique_candidates
+
+    def _create_llm(self, model_name):
+        """Create a Gemini client for a specific model without probing."""
+        return ChatGoogleGenerativeAI(
+            google_api_key=self.api_key,
+            model=model_name,
+            temperature=TEMPERATURE
+        )
+
+    def _invoke_with_model_fallback(self, messages):
+        """Invoke LLM with automatic fallback across candidate models."""
+        last_error = None
+        for model_name in self.model_candidates:
+            try:
+                llm = self._create_llm(model_name)
+                response = llm.invoke(messages)
+                self.llm = llm
+                self.active_model = model_name
+                return response
+            except Exception as e:
+                last_error = e
+                continue
+
+        raise RuntimeError(
+            "Unable to call any Gemini model. "
+            "Please set MODEL_NAME in .env to a model available for your API key. "
+            f"Tried: {', '.join(self.model_candidates)}. "
+            f"Last error: {str(last_error)}"
+        )
     
     def load_dataset(self, file_path):
         """Load dataset for analysis."""
@@ -251,20 +300,14 @@ You have access to a dataset that has been uploaded by the user.
 Help the user understand and analyze their data. Provide insights, answer questions, and suggest relevant analysis.
 Be clear, concise, and data-driven in your responses.
 Use only columns that actually exist in the dataset and preserve exact column names/case.
-If a requested field is missing, clearly say which column is unavailable and ask for a valid alternative."""
+If a requested field is missing, clearly say which column is unavailable and ask for a valid alternative.
+Do not output Python code, SQL, or plotting scripts unless the user explicitly asks for code."""
             
-            # Create prompt template
-            system_message_prompt = SystemMessagePromptTemplate.from_template(system_prompt)
-            human_message_prompt = HumanMessagePromptTemplate.from_template("{text}")
-            chat_prompt = ChatPromptTemplate.from_messages(
-                [system_message_prompt, human_message_prompt]
-            )
-            
-            # Format and process the query
-            formatted_prompt = chat_prompt.format_prompt(text=user_query).to_messages()
-            
-            # Get response from LLM
-            response = self.llm.invoke(formatted_prompt)
+            # Use direct message objects so braces in dataset context are treated as literal text.
+            response = self._invoke_with_model_fallback([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_query)
+            ])
             
             # Store in memory
             self.chat_history.add_user_message(user_query)
@@ -288,14 +331,10 @@ If a requested field is missing, clearly say which column is unavailable and ask
 Based on the dataset above, provide 3-5 key insights or observations about this data. 
 Focus on interesting patterns, distributions, or characteristics."""
             
-            system_message = SystemMessagePromptTemplate.from_template(
-                "You are a data analysis expert. Provide clear, actionable insights from the data."
-            )
-            human_message = HumanMessagePromptTemplate.from_template("{text}")
-            chat_prompt = ChatPromptTemplate.from_messages([system_message, human_message])
-            
-            formatted_prompt = chat_prompt.format_prompt(text=prompt).to_messages()
-            response = self.llm.invoke(formatted_prompt)
+            response = self._invoke_with_model_fallback([
+                SystemMessage(content="You are a data analysis expert. Provide clear, actionable insights from the data."),
+                HumanMessage(content=prompt)
+            ])
             
             return response.content
         
@@ -313,3 +352,39 @@ Focus on interesting patterns, distributions, or characteristics."""
     def get_sample_data(self, rows=5):
         """Get sample data from the dataset."""
         return self.csv_analyzer.get_sample_data(rows)
+    
+    def suggest_dashboard_queries(self):
+        """Generate suggested dashboard queries based on the dataset."""
+        if self.csv_analyzer.df is None:
+            return []
+        
+        df = self.csv_analyzer.df
+        suggestions = []
+        
+        numeric_cols = list(df.select_dtypes(include=['number']).columns)
+        categorical_cols = [col for col in df.columns if df[col].dtype == 'object']
+        
+        # Detect date columns
+        date_cols = []
+        for col in df.columns:
+            col_lower = str(col).lower()
+            if 'date' in col_lower or 'year' in col_lower or 'month' in col_lower:
+                date_cols.append(col)
+        
+        # Generate suggestions
+        if date_cols and numeric_cols:
+            suggestions.append(f"Show the trend of {numeric_cols[0]} over {date_cols[0]}")
+        
+        if categorical_cols and numeric_cols:
+            suggestions.append(f"Compare {numeric_cols[0]} across different {categorical_cols[0]}")
+        
+        if len(numeric_cols) >= 2:
+            suggestions.append(f"Show the correlation between {numeric_cols[0]} and {numeric_cols[1]}")
+        
+        if categorical_cols and numeric_cols:
+            suggestions.append(f"Display the distribution of {numeric_cols[0]} by {categorical_cols[0]}")
+        
+        if len(categorical_cols) >= 2 and numeric_cols:
+            suggestions.append(f"Break down {numeric_cols[0]} by {categorical_cols[0]} and {categorical_cols[1]}")
+        
+        return suggestions[:5]

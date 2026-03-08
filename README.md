@@ -4,18 +4,43 @@ A conversational AI application for instant business intelligence and data analy
 
 ## 🌟 Features
 
+### Core Capabilities
 - **CSV File Upload**: Upload and analyze your CSV files instantly
 - **AI-Powered Analysis**: Ask natural language questions about your data
 - **Smart Insights**: Get automatic summary insights from your uploaded data
-- **Conversational Interface**: Interactive chat-based data exploration
+- **Conversational Interface**: Interactive chat-based data exploration with **auto-generated visualizations**
 - **Real-time Processing**: Immediate responses and analysis
 - **Data Preview**: View sample data and statistics
+
+### 🎨 Natural Language Dashboard Generator
+Transform plain English into interactive dashboards - **works in both Chat and Dashboard Builder!**
+
+- **Plain English Queries**: Simply describe what you want to see
+  - Example: "Show monthly sales trends by region"
+  - Example: "Compare revenue across product categories"
+  - Example: "Display the correlation between price and demand"
+
+- **Intelligent Chart Selection**: Automatically picks the best visualization
+  - Line charts for trends over time
+  - Bar charts for categorical comparisons
+  - Scatter plots for correlations
+  - Pie charts for composition analysis
+
+- **AI-Powered Suggestions**: Get smart query recommendations based on your data structure
+
+- **Multi-Chart Dashboards**: Generate multiple coordinated visualizations from a single query
+
+- **Interactive Exploration**: Hover details, data tables, and visual insights
+
+- **🆕 Chat Integration**: Ask for visualizations directly in the AI Chat tab - get text answers AND charts together!
+
+📖 **[Complete NL Dashboard Guide →](NL_DASHBOARD_GUIDE.md)**
 
 ## 🛠️ Technology Stack
 
 - **Backend**: Python with LangChain
 - **Frontend**: Streamlit
-- **AI Model**: Google Gemini 1.5 Flash
+- **AI Model**: Google Gemini 2.0 Flash
 - **Data Processing**: Pandas, NumPy
 
 ## 📋 Prerequisites
@@ -78,23 +103,41 @@ The application will open in your default browser at `http://localhost:8501`
    - Select your CSV file
    - Click "Load Data" to process
 
-2. **View Data Insights**
-   - Automatic insights will be generated
-   - View sample data in the expandable section
-   - Check data summary and statistics
+2. **📊 Quick Insights Tab**
+   - View Power BI-style dashboard with 5 automatic visualizations
+   - See trend analysis, distributions, and relationships
+   - Explore data summary and statistics
 
-3. **Ask Questions**
+3. **🎨 Dashboard Builder Tab** (NEW!)
+   - Use natural language to create custom dashboards
+   - Click AI-suggested queries or type your own
+   - Generate interactive multi-chart dashboards instantly
+   - Example: "Show sales trends by region for Q3"
+
+4. **💬 AI Chat Tab** (Enhanced!)
    - Type your questions in the chat input
    - Ask about trends, patterns, statistics
    - Get AI-powered analysis instantly
+   - **NEW**: Automatically generates visualizations when you ask for them!
+   - Example: "Show me sales trends" → Gets text answer + visual chart
 
-### Example Questions
+### Example Queries
 
+#### AI Chat Questions (Now with Auto-Visualizations!)
 - "What are the main trends in this data?"
 - "Summarize the key statistics"
 - "Which columns have missing values?"
-- "What's the distribution of [column_name]?"
-- "Find any correlations in the data"
+- "Show the distribution of [column_name]" ← Generates chart!
+- "Display correlations in the data" ← Generates chart!
+- "Compare [metric] by [category]" ← Generates chart!
+- "Visualize [column] over time" ← Generates chart!
+
+#### Dashboard Builder Queries
+- "Show monthly sales trends by region"
+- "Compare revenue across product categories"
+- "Display the correlation between price and demand"
+- "Create a breakdown of customer segments"
+- "Show year-over-year growth for Q3"
 - "What are the top values in [column_name]?"
 - "Provide insights about [specific_column]"
 

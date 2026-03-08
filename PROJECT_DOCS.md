@@ -77,8 +77,8 @@ genai-app/
 **Configuration Options**:
 ```python
 # API Settings
-OPENAI_API_KEY          # Your OpenAI API key
-MODEL_NAME              # Model to use (default: gpt-3.5-turbo)
+GOOGLE_API_KEY          # Your Google Gemini API key
+MODEL_NAME              # Model to use (default: gemini-1.5-flash)
 TEMPERATURE             # Response creativity (0-1)
 
 # Application Settings
@@ -149,7 +149,7 @@ bash setup.sh
 #### `.env.example` (Environment Template)
 **Purpose**: Template for environment variables
 **Variables**:
-- `OPENAI_API_KEY`: Your OpenAI API key
+- `GOOGLE_API_KEY`: Your Google Gemini API key
 - `APP_TITLE`: Application title
 - `APP_DESCRIPTION`: App description
 - `MODEL_NAME`: LLM model name
@@ -157,7 +157,7 @@ bash setup.sh
 
 **Setup Instructions**:
 1. Copy to `.env`
-2. Add your OpenAI API key
+2. Add your Google Gemini API key
 3. Customize other settings as needed
 
 ---
@@ -179,11 +179,12 @@ bash setup.sh
 **Packages**:
 - `streamlit`: Web interface
 - `langchain`: AI framework
-- `langchain-openai`: OpenAI integration
+- `langchain-google-genai`: Google Gemini integration
+- `langchain-community`: Chat history and integrations
+- `langchain-core`: Core prompt/message abstractions
 - `python-dotenv`: Environment management
 - `pandas`: Data processing
 - `numpy`: Numerical computing
-- `openai`: OpenAI API client
 
 ---
 
@@ -256,7 +257,7 @@ User Question Input
        ↓
 Format with Data Context (langchain_utils.py)
        ↓
-LangChain + OpenAI Processing
+LangChain + Google Gemini Processing
        ↓
 Return AI Response
        ↓
@@ -269,12 +270,12 @@ Store in Chat History
 
 ## 🔌 API Integration
 
-### OpenAI Integration
+### Google Gemini Integration
 ```python
 # Initialized in langchain_utils.py
-ChatOpenAI(
-    openai_api_key=OPENAI_API_KEY,
-    model_name=MODEL_NAME,
+ChatGoogleGenerativeAI(
+       google_api_key=GOOGLE_API_KEY,
+       model=MODEL_NAME,
     temperature=TEMPERATURE
 )
 ```
@@ -379,7 +380,7 @@ st.session_state {
 ## 📈 Performance Optimization
 
 1. **CSV Size**: Keep under 50MB for best performance
-2. **Token Usage**: Monitor OpenAI API usage
+2. **Token Usage**: Monitor Google Gemini API usage
 3. **Cache**: Streamlit caching for repeated operations
 4. **Memory**: Limit chat history to recent messages
 
@@ -399,7 +400,7 @@ pytest --cov           # With coverage
 
 - [Streamlit Docs](https://docs.streamlit.io)
 - [LangChain Docs](https://docs.langchain.com)
-- [OpenAI API Docs](https://platform.openai.com/docs)
+- [Google Gemini API Docs](https://ai.google.dev/gemini-api/docs)
 - [Pandas Documentation](https://pandas.pydata.org/docs)
 
 ---
@@ -423,5 +424,5 @@ pytest --cov           # With coverage
 
 ---
 
-**Last Updated**: 2024
+**Last Updated**: 2026
 **Version**: 1.0.0
