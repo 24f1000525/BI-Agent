@@ -114,7 +114,7 @@ genai-app/
 
 Edit `config.py` to customize:
 
-- `MODEL_NAME`: OpenAI model (default: gpt-3.5-turbo)
+- `MODEL_NAME`: Google Gemini model (default: gemini-1.5-flash)
 - `TEMPERATURE`: Response creativity (0-1, default: 0.7)
 - `MAX_FILE_SIZE_MB`: Maximum upload size
 - `CHAT_HISTORY_MAX_LENGTH`: Messages to keep in memory
@@ -128,9 +128,9 @@ Edit `config.py` to customize:
 
 ## 🐛 Troubleshooting
 
-### "OpenAI API Key not found"
+### "Google API Key not found"
 - Check that `.env` file exists in the project directory
-- Verify `OPENAI_API_KEY` is set correctly
+- Verify `GOOGLE_API_KEY` is set correctly
 - Restart the Streamlit app
 
 ### "Error loading CSV"
@@ -140,8 +140,8 @@ Edit `config.py` to customize:
 
 ### "Error processing query"
 - Check internet connection
-- Verify OpenAI API key is valid
-- Check OpenAI account has available credits
+- Verify Google Gemini API key is valid
+- Check Google AI Studio project/usage limits
 
 ## 📈 Performance Tips
 
@@ -155,7 +155,7 @@ Edit `config.py` to customize:
 - Never commit `.env` file with API keys
 - Use `.gitignore` to exclude sensitive files
 - Rotate API keys periodically
-- Monitor API usage in OpenAI dashboard
+- Monitor API usage in Google AI Studio
 
 ## 📝 Example CSV Columns
 
@@ -185,7 +185,7 @@ Extend `app.py` to support Excel, JSON, or other formats.
 
 - [LangChain Documentation](https://docs.langchain.com)
 - [Streamlit Documentation](https://docs.streamlit.io)
-- [OpenAI API Documentation](https://platform.openai.com/docs)
+- [Google Gemini API Documentation](https://ai.google.dev/gemini-api/docs)
 - [Pandas Documentation](https://pandas.pydata.org/docs)
 
 ## 📄 License
@@ -209,7 +209,7 @@ For issues or questions:
 1. Check the Troubleshooting section
 2. Review error messages carefully
 3. Verify environment setup
-4. Check OpenAI API status
+4. Check Google AI/Gemini API status
 
 ---
 
