@@ -10,7 +10,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.0-flash")
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.7))
 
 # Application Configuration
-APP_TITLE = os.getenv("APP_TITLE", "GenAI Data Intelligence")
+APP_TITLE = os.getenv("APP_TITLE", "DataLens AI")
 APP_DESCRIPTION = os.getenv("APP_DESCRIPTION", "Conversational AI for Instant Business Intelligence")
 
 # Upload Configuration

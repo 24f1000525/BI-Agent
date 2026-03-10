@@ -1,12 +1,12 @@
 @echo off
-REM Setup script for GenAI Data Intelligence Dashboard
-REM Run this script to set up the application environment
+REM Setup script for DataLens AI - GenAI Data Intelligence Dashboard
+REM Run this script to set up the application environment (Backend + Frontend)
 
 echo.
-echo ================================
-echo GenAI Data Intelligence Dashboard
-echo Setup Script
-echo ================================
+echo ========================================
+echo DataLens AI - GenAI Data Intelligence
+echo Setup Script (Flask + React)
+echo ========================================
 echo.
 
 REM Check if Python is installed
@@ -22,8 +22,30 @@ echo ✅ Python found
 python --version
 echo.
 
+REM Check if Node.js is installed
+node --version >nul 2>&1
+if errorlevel 1 (
+    echo ❌ Node.js is not installed or not in PATH
+    echo Please install Node.js 16+ from https://nodejs.org
+    pause
+    exit /b 1
+)
+
+echo ✅ Node.js found
+node --version
+npm --version
+echo.
+
+REM ========================================
+REM Backend Setup
+REM ========================================
+echo ========================================
+echo Setting up Backend (Python/Flask)
+echo ========================================
+echo.
+
 REM Create virtual environment
-echo 🔄 Creating virtual environment...
+echo 🔄 Creating Python virtual environment...
 if exist venv (
     echo ⚠️  Virtual environment already exists
 ) else (
@@ -48,41 +70,67 @@ echo 🔄 Upgrading pip...
 python -m pip install --upgrade pip
 echo.
 
-REM Install requirements
-echo 🔄 Installing dependencies...
+REM Install Python requirements
+echo 🔄 Installing Python dependencies...
 pip install -r requirements.txt
 if errorlevel 1 (
-    echo ❌ Failed to install dependencies
+    echo ❌ Failed to install Python dependencies
     pause
     exit /b 1
 )
-echo ✅ Dependencies installed
+echo ✅ Python dependencies installed
 echo.
 
 REM Check if .env exists
 if not exist .env (
     echo 🔄 Creating .env file from template...
     copy .env.example .env
-    echo ⚠️  Please edit .env and add your OPENAI_API_KEY
+    echo ⚠️  IMPORTANT: Edit .env and add your GOOGLE_API_KEY
+    echo    Get your free API key from: https://aistudio.google.com/app/apikey
     echo.
 ) else (
     echo ✅ .env file already exists
 )
 echo.
 
-REM Generate sample data
-echo 🔄 Generating sample CSV files...
-python generate_sample_data.py
+REM ========================================
+REM Frontend Setup
+REM ========================================
+echo ========================================
+echo Setting up Frontend (React/Vite)
+echo ========================================
 echo.
 
-echo ================================
+echo 🔄 Installing Node.js dependencies...
+cd frontend
+call npm install
+if errorlevel 1 (
+    echo ❌ Failed to install Node.js dependencies
+    cd ..
+    pause
+    exit /b 1
+)
+echo ✅ Node.js dependencies installed
+cd ..
+echo.
+
+echo ========================================
 echo ✅ Setup Complete!
-echo ================================
+echo ========================================
 echo.
 echo 📝 Next steps:
-echo 1. Edit .env and add your OpenAI API Key
-echo 2. Run: streamlit run app.py
 echo.
-echo 📚 For help, see README.md or QUICKSTART.md
+echo 1. Edit .env and add your Google Gemini API Key:
+echo    GOOGLE_API_KEY=your-api-key-here
+echo.
+echo 2. Start the application:
+echo    - Easy way: Run start.bat
+echo    - Manual way:
+echo      Terminal 1: venv\Scripts\activate ^&^& python flask_app.py
+echo      Terminal 2: cd frontend ^&^& npm run dev
+echo.
+echo 3. Open http://localhost:5173 in your browser
+echo.
+echo 📚 For more help, see README.md
 echo.
 pause

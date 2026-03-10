@@ -1,10 +1,14 @@
+import os
 import pandas as pd
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from config import GOOGLE_API_KEY, MODEL_NAME, TEMPERATURE
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.0-flash")
+TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
 
 
 class CSVAnalyzer:
@@ -93,10 +97,10 @@ class LangChainChat:
     """LangChain-based conversational AI for data analysis."""
     
     def __init__(self, api_key=None):
-        self.api_key = api_key or GOOGLE_API_KEY
+        self.api_key = api_key or os.getenv('GOOGLE_API_KEY', '') or GOOGLE_API_KEY
         self.model_candidates = self._build_model_candidates()
         self.active_model = self.model_candidates[0]
-        self.llm = self._create_llm(self.active_model)
+        self.llm = None  # lazy-initialised on first use
         self.chat_history = ChatMessageHistory()
         self.csv_analyzer = CSVAnalyzer()
 
@@ -132,6 +136,9 @@ class LangChainChat:
 
     def _invoke_with_model_fallback(self, messages):
         """Invoke LLM with automatic fallback across candidate models."""
+        # Refresh api_key from env in case dotenv was loaded after __init__
+        if not self.api_key:
+            self.api_key = os.getenv('GOOGLE_API_KEY', '') or os.getenv('GEMINI_API_KEY', '')
         last_error = None
         for model_name in self.model_candidates:
             try:

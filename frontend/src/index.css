@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #050811;
+  color: #e2e8f0;
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: #1a3a6b; border-radius: 3px; }
+
+@keyframes scan {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px #3b82f620; }
+  50%       { box-shadow: 0 0 40px #3b82f640; }
+}
+
+.scan-line {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,.4), transparent);
+  animation: scan 8s linear infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.anim-fadeUp  { animation: fadeUp .5s ease both; }
+.anim-glow    { animation: glow 3s ease-in-out infinite; }
+.anim-glow4   { animation: glow 4s ease-in-out infinite; }
+.anim-float   { animation: float 3s ease-in-out infinite; }
+.anim-spin    { animation: spin .8s linear infinite; }
+.anim-spin-r  { animation: spin 1.2s linear infinite reverse; }
+
