@@ -1052,7 +1052,16 @@ def _load_default_data():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "model": chat.active_model})
+    api_key_present = bool(
+        os.getenv("GOOGLE_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or getattr(chat, "api_key", "")
+    )
+    return jsonify({
+        "status": "ok",
+        "model": chat.active_model,
+        "api_key_configured": api_key_present,
+    })
 
 
 @app.route("/api/test-key", methods=["GET"])
@@ -1367,6 +1376,19 @@ def query():
     body = request.get_json(force=True)
     if not body or not body.get("query"):
         return jsonify({"error": "Missing 'query' field"}), 400
+
+    # Fail fast with explicit guidance if Gemini key is missing in deployment.
+    api_key_present = bool(
+        os.getenv("GOOGLE_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or getattr(chat, "api_key", "")
+    )
+    if not api_key_present:
+        return jsonify({
+            "summary": "⚠️ Gemini API key is not configured on the server.",
+            "charts": [],
+            "error": "Missing GOOGLE_API_KEY (or GEMINI_API_KEY). Set it in deployment environment variables.",
+        }), 200
 
     user_query: str = body["query"]
     highlight_rule = _extract_highlight_rule(user_query)

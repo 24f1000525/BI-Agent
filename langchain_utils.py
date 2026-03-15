@@ -6,9 +6,20 @@ from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTempla
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+def _safe_float_env(name, default):
+    """Parse float env var safely, falling back when value is blank/invalid."""
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
 MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.0-flash")
-TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
+TEMPERATURE = _safe_float_env("TEMPERATURE", 0.1)
 
 
 class CSVAnalyzer:
