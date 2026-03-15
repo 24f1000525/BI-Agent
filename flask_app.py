@@ -22,6 +22,17 @@ def _invoke_llm_with_timeout(messages, timeout_seconds=45):
         except concurrent.futures.TimeoutError as e:
             raise TimeoutError(f"LLM request timed out after {timeout_seconds}s") from e
 
+
+def _safe_int_env(name, default):
+    """Parse integer env var safely, falling back when value is blank/invalid."""
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
 # Validation helpers for hallucination prevention
 def validate_chart_response(result, available_cols, csv_data):
     """
@@ -1079,7 +1090,7 @@ def health():
 def test_key():
     """Quick endpoint to verify Gemini API key & connectivity."""
     try:
-        llm_timeout_seconds = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+        llm_timeout_seconds = _safe_int_env("LLM_TIMEOUT_SECONDS", 20)
         resp = _invoke_llm_with_timeout(
             [{"type": "system", "content": "Reply with exactly: OK"},
              {"type": "human", "content": "Test"}]
@@ -1558,7 +1569,7 @@ REMEMBER: 100% ACCURACY = Include ALL relevant data unless user explicitly asks 
 
     try:
         import re
-        llm_timeout_seconds = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+        llm_timeout_seconds = _safe_int_env("LLM_TIMEOUT_SECONDS", 20)
         response = _invoke_llm_with_timeout(messages, timeout_seconds=llm_timeout_seconds)
         text = response.content.strip()
         # Extract JSON robustly — find the first { ... } block

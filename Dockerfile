@@ -13,6 +13,8 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=5000
+ENV GUNICORN_TIMEOUT=120
+ENV GUNICORN_WORKERS=1
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -21,4 +23,4 @@ COPY . ./
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 EXPOSE 5000
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} flask_app:app"]
+CMD ["sh", "-c", "gunicorn --workers ${GUNICORN_WORKERS} --timeout ${GUNICORN_TIMEOUT} --bind 0.0.0.0:${PORT} flask_app:app"]
