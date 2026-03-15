@@ -25,6 +25,8 @@ export default function App() {
     }
   }
 
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
   const fetchOverview = async () => {
     setOverviewLoading(true)
     try {
@@ -80,29 +82,61 @@ export default function App() {
     setLoading(true)
     setActiveTab('chat')
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 120000)
-
     try {
-      const r = await fetch('/api/query', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          session_id: 'default',
-          conversation_history: history.slice(-6),
-        }),
-      })
-      clearTimeout(timeoutId)
-      const text = await r.text()
-      if (!text) throw new Error('Server returned an empty response')
-      const data = parseJsonFromText(text)
-      if (!data) {
-        const compact = text.replace(/\s+/g, ' ').trim().slice(0, 220)
-        throw new Error(`Server returned non-JSON response${compact ? `: ${compact}` : ''}`)
+      let data = null
+      let lastError = null
+
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 120000)
+
+        try {
+          const r = await fetch('/api/query', {
+            method: 'POST',
+            signal: controller.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query,
+              session_id: 'default',
+              conversation_history: history.slice(-6),
+            }),
+          })
+
+          const text = await r.text()
+          if (!text) throw new Error('Server returned an empty response')
+
+          const parsed = parseJsonFromText(text)
+          const isTransientGateway = [502, 503, 504].includes(r.status)
+
+          if (!parsed && isTransientGateway && attempt === 1) {
+            await sleep(1200)
+            continue
+          }
+
+          if (!parsed) {
+            const compact = text.replace(/\s+/g, ' ').trim().slice(0, 220)
+            throw new Error(`Server returned non-JSON response${compact ? `: ${compact}` : ''}`)
+          }
+
+          if (!r.ok) throw new Error(parsed.error || `Server error ${r.status}`)
+
+          data = parsed
+          lastError = null
+          break
+        } catch (e) {
+          lastError = e
+          const transientMessage = String(e?.message || '').toLowerCase()
+          const maybeTransient = transientMessage.includes('502') || transientMessage.includes('503') || transientMessage.includes('504')
+          if (attempt === 1 && maybeTransient) {
+            await sleep(1200)
+            continue
+          }
+        } finally {
+          clearTimeout(timeoutId)
+        }
       }
-      if (!r.ok) throw new Error(data.error || `Server error ${r.status}`)
+
+      if (!data) throw lastError || new Error('Query failed unexpectedly')
 
       setHistory(prev => [
         ...prev,
@@ -110,7 +144,6 @@ export default function App() {
         { role: 'assistant', content: data.summary || '', charts: data.charts || [] },
       ])
     } catch (err) {
-      clearTimeout(timeoutId)
       const msg = err.name === 'AbortError' ? 'Request timed out (120s). Try a simpler query.' : err.message
       setError(msg)
       setHistory(prev => [
