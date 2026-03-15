@@ -1090,7 +1090,7 @@ def health():
 def test_key():
     """Quick endpoint to verify Gemini API key & connectivity."""
     try:
-        llm_timeout_seconds = _safe_int_env("LLM_TIMEOUT_SECONDS", 20)
+        llm_timeout_seconds = _safe_int_env("LLM_TIMEOUT_SECONDS", 60)
         resp = _invoke_llm_with_timeout(
             [{"type": "system", "content": "Reply with exactly: OK"},
              {"type": "human", "content": "Test"}]
@@ -1569,7 +1569,7 @@ REMEMBER: 100% ACCURACY = Include ALL relevant data unless user explicitly asks 
 
     try:
         import re
-        llm_timeout_seconds = _safe_int_env("LLM_TIMEOUT_SECONDS", 20)
+        llm_timeout_seconds = _safe_int_env("LLM_TIMEOUT_SECONDS", 60)
         response = _invoke_llm_with_timeout(messages, timeout_seconds=llm_timeout_seconds)
         text = response.content.strip()
         # Extract JSON robustly — find the first { ... } block
