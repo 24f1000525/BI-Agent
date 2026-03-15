@@ -5,6 +5,7 @@ import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
+from werkzeug.exceptions import HTTPException
 
 load_dotenv()  # must run before importing langchain_utils so GOOGLE_API_KEY is set
 
@@ -1006,6 +1007,31 @@ def _build_insurance_insight_response(query: str, csv_data: list):
 # Serve built frontend assets when running in production/container.
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(e):
+    """Ensure API errors are always JSON instead of HTML error pages."""
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "error": e.name,
+            "message": e.description,
+            "status": e.code,
+        }), e.code
+    return e
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(e):
+    """Catch uncaught backend errors and return JSON for API callers."""
+    print(f"[Unhandled Error] {type(e).__name__}: {str(e)}")
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "error": "Internal Server Error",
+            "message": str(e),
+            "status": 500,
+        }), 500
+    return jsonify({"error": "Internal Server Error"}), 500
 
 # Single LangChain chat instance (per process — extends with session support if needed)
 chat = LangChainChat()

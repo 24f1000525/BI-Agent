@@ -17,6 +17,14 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview')
   const chatBottomRef = useRef(null)
 
+  const parseJsonFromText = (text) => {
+    try {
+      return JSON.parse(text)
+    } catch {
+      return null
+    }
+  }
+
   const fetchOverview = async () => {
     setOverviewLoading(true)
     try {
@@ -89,8 +97,11 @@ export default function App() {
       clearTimeout(timeoutId)
       const text = await r.text()
       if (!text) throw new Error('Server returned an empty response')
-      let data
-      try { data = JSON.parse(text) } catch { throw new Error('Server returned invalid JSON') }
+      const data = parseJsonFromText(text)
+      if (!data) {
+        const compact = text.replace(/\s+/g, ' ').trim().slice(0, 220)
+        throw new Error(`Server returned non-JSON response${compact ? `: ${compact}` : ''}`)
+      }
       if (!r.ok) throw new Error(data.error || `Server error ${r.status}`)
 
       setHistory(prev => [
