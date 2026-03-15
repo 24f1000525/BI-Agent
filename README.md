@@ -411,32 +411,42 @@ C002,Jane Smith,jane@example.com,800,East,Standard
 
 ## 🚀 Deployment
 
-### Production Build
+### One-Container Deployment (Recommended)
 
-1. **Frontend Build**
-```bash
-cd frontend
-npm run build
-```
-This creates optimized static files in `frontend/dist/`
+This repository now includes a production `Dockerfile` that:
+- Builds the React frontend
+- Serves the built frontend from Flask
+- Runs Flask with Gunicorn on the cloud `PORT`
 
-2. **Backend Configuration**
-- Update CORS settings for your domain
-- Set environment variables on server
-- Use production WSGI server (Gunicorn, uWSGI)
+1. **Deploy to a Docker-capable host**
+- Render (Docker Web Service)
+- Railway (Deploy from Dockerfile)
+- Fly.io
+- Azure Web App for Containers
+- AWS ECS/App Runner
 
-3. **Hosting Options**
-- **Vercel/Netlify**: Frontend static files
-- **Heroku/Railway**: Backend Flask app
-- **AWS/Azure/GCP**: Full stack deployment
-- **Docker**: Containerized deployment
-
-### Environment Variables for Production
+2. **Set environment variables**
 ```env
 GOOGLE_API_KEY=your-production-key
-FLASK_ENV=production
-FRONTEND_URL=https://your-domain.com
+MODEL_NAME=gemini-2.0-flash
+TEMPERATURE=0.7
+PORT=5000
 ```
+
+3. **Container runtime command**
+The image already starts with:
+```bash
+gunicorn --bind 0.0.0.0:$PORT flask_app:app
+```
+
+### Local Docker Test
+
+```bash
+docker build -t datalens-ai .
+docker run --rm -p 5000:5000 --env GOOGLE_API_KEY=your-key datalens-ai
+```
+
+Open: `http://localhost:5000`
 
 ## 🎨 Customization
 

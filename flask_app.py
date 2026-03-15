@@ -2,7 +2,7 @@ import os
 import json
 import tempfile
 import pandas as pd
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -1003,7 +1003,8 @@ def _build_insurance_insight_response(query: str, csv_data: list):
     return None
 
 
-app = Flask(__name__)
+# Serve built frontend assets when running in production/container.
+app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 CORS(app)
 
 # Single LangChain chat instance (per process — extends with session support if needed)
@@ -1554,5 +1555,39 @@ REMEMBER: 100% ACCURACY = Include ALL relevant data unless user explicitly asks 
         }), 200
 
 
+@app.route("/", methods=["GET"])
+def serve_root():
+    """Serve frontend entrypoint when the production build exists."""
+    index_path = os.path.join(app.static_folder or "", "index.html")
+    if app.static_folder and os.path.exists(index_path):
+        return send_from_directory(app.static_folder, "index.html")
+
+    return jsonify({
+        "message": "Frontend build not found. Build frontend with 'npm run build' in /frontend.",
+        "health": "/api/health"
+    }), 200
+
+
+@app.route("/<path:path>", methods=["GET"])
+def serve_frontend(path):
+    """Serve static assets and SPA routes for the React frontend."""
+    # Let undefined API paths return a clean API-style 404.
+    if path.startswith("api/"):
+        return jsonify({"error": "Not Found"}), 404
+
+    static_file = os.path.join(app.static_folder or "", path)
+    if app.static_folder and os.path.exists(static_file):
+        return send_from_directory(app.static_folder, path)
+
+    index_path = os.path.join(app.static_folder or "", "index.html")
+    if app.static_folder and os.path.exists(index_path):
+        return send_from_directory(app.static_folder, "index.html")
+
+    return jsonify({"error": "Frontend build not found"}), 404
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "5000"))
+    app.run(debug=debug, host=host, port=port)
