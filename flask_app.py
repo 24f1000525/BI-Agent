@@ -1,6 +1,7 @@
 import os
 import json
 import tempfile
+import concurrent.futures
 import pandas as pd
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -10,6 +11,16 @@ from werkzeug.exceptions import HTTPException
 load_dotenv()  # must run before importing langchain_utils so GOOGLE_API_KEY is set
 
 from langchain_utils import LangChainChat, CSVAnalyzer
+
+
+def _invoke_llm_with_timeout(messages, timeout_seconds=45):
+    """Invoke LLM with a hard timeout to avoid platform-level connection aborts."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(chat._invoke_with_model_fallback, messages)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except concurrent.futures.TimeoutError as e:
+            raise TimeoutError(f"LLM request timed out after {timeout_seconds}s") from e
 
 # Validation helpers for hallucination prevention
 def validate_chart_response(result, available_cols, csv_data):
@@ -1068,9 +1079,11 @@ def health():
 def test_key():
     """Quick endpoint to verify Gemini API key & connectivity."""
     try:
-        resp = chat._invoke_with_model_fallback(
+        llm_timeout_seconds = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+        resp = _invoke_llm_with_timeout(
             [{"type": "system", "content": "Reply with exactly: OK"},
              {"type": "human", "content": "Test"}]
+            , timeout_seconds=llm_timeout_seconds
         )
         return jsonify({"status": "ok", "model": chat.active_model, "response": resp.content[:100]})
     except Exception as e:
@@ -1545,7 +1558,8 @@ REMEMBER: 100% ACCURACY = Include ALL relevant data unless user explicitly asks 
 
     try:
         import re
-        response = chat._invoke_with_model_fallback(messages)
+        llm_timeout_seconds = int(os.getenv("LLM_TIMEOUT_SECONDS", "45"))
+        response = _invoke_llm_with_timeout(messages, timeout_seconds=llm_timeout_seconds)
         text = response.content.strip()
         # Extract JSON robustly — find the first { ... } block
         match = re.search(r'\{[\s\S]*\}', text)
